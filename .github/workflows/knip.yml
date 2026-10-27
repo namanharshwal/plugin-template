@@ -3,25 +3,131 @@ name: Knip
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      package-manager:
+        description: "Package manager to use: bun, yarn, npm, or pnpm"
+        required: false
+        default: "bun"
+        type: string
+      bun-version:
+        description: "Bun version to setup (if using bun)"
+        required: false
+        default: "latest"
+        type: string
+      node-version:
+        description: "Node.js version to setup (if using yarn/npm/pnpm)"
+        required: false
+        default: "24.x"
+        type: string
+      knip-command:
+        description: "Custom knip command to run (leave blank for default)"
+        required: false
+        default: ""
+        type: string
+      install-command:
+        description: "Custom install command to run (leave blank for default)"
+        required: false
+        default: ""
+        type: string
+      working-directory:
+        description: "Working directory for knip execution"
+        required: false
+        default: "."
+        type: string
+  workflow_call:
+    inputs:
+      package-manager:
+        description: "Package manager to use: bun, yarn, npm, or pnpm"
+        required: false
+        default: "bun"
+        type: string
+      bun-version:
+        description: "Bun version to setup (if using bun)"
+        required: false
+        default: "latest"
+        type: string
+      node-version:
+        description: "Node.js version to setup (if using yarn/npm/pnpm)"
+        required: false
+        default: "24.x"
+        type: string
+      knip-command:
+        description: "Custom knip command to run (leave blank for default)"
+        required: false
+        default: ""
+        type: string
+      install-command:
+        description: "Custom install command to run (leave blank for default)"
+        required: false
+        default: ""
+        type: string
+      working-directory:
+        description: "Working directory for knip execution"
+        required: false
+        default: "."
+        type: string
+    secrets:
+      NODE_AUTH_TOKEN:
+        description: "Auth token for private npm registries if needed"
+        required: false
 
 jobs:
   run-knip:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory || '.' }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup Bun
+        if: ${{ (inputs.package-manager || 'bun') == 'bun' }}
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ inputs.bun-version || 'latest' }}
 
-      - name: Install toolchain
-        run: bun install
+      - name: Setup Node.js
+        if: ${{ (inputs.package-manager || 'bun') != 'bun' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version || '24.x' }}
+          token: ${{ secrets.NODE_AUTH_TOKEN }}
+
+      - name: Setup pnpm
+        if: ${{ inputs.package-manager == 'pnpm' }}
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: |
+          if [ -n "${{ inputs.install-command }}" ]; then
+            ${{ inputs.install-command }}
+          elif [ "${{ inputs.package-manager || 'bun' }}" = "bun" ]; then
+            bun install --frozen-lockfile || bun install
+          elif [ "${{ inputs.package-manager }}" = "yarn" ]; then
+            yarn install --immutable || yarn install
+          elif [ "${{ inputs.package-manager }}" = "pnpm" ]; then
+            pnpm install --frozen-lockfile || pnpm install
+          else
+            npm ci || npm install
+          fi
 
       - name: Store PR number
-        run: echo ${{ github.event.number }} > pr-number.txt
+        run: echo ${{ github.event.number || github.event.pull_request.number || 0 }} > pr-number.txt
 
       - name: Run Knip
-        run: bun run knip || bun run knip --reporter json > knip-results.json
+        run: |
+          if [ -n "${{ inputs.knip-command }}" ]; then
+            ${{ inputs.knip-command }}
+          elif [ "${{ inputs.package-manager || 'bun' }}" = "bun" ]; then
+            bun run knip || bun run knip-ci > knip-results.json || bun run knip --reporter json > knip-results.json
+          elif [ "${{ inputs.package-manager }}" = "yarn" ]; then
+            yarn knip || yarn knip-ci > knip-results.json || yarn knip --reporter json > knip-results.json
+          elif [ "${{ inputs.package-manager }}" = "pnpm" ]; then
+            pnpm knip || pnpm knip-ci > knip-results.json || pnpm knip --reporter json > knip-results.json
+          else
+            npm run knip || npm run knip-ci > knip-results.json || npx knip --reporter json > knip-results.json
+          fi
 
       - name: Upload knip result
         if: failure()
@@ -29,5 +135,5 @@ jobs:
         with:
           name: knip-results
           path: |
-            knip-results.json
-            pr-number.txt
+            ${{ inputs.working-directory || '.' }}/knip-results.json
+            ${{ inputs.working-directory || '.' }}/pr-number.txt
