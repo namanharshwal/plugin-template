@@ -116,13 +116,16 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ -n "${{ inputs.install-command }}" ]; then
-            ${{ inputs.install-command }}
-          elif [ "${{ inputs.package-manager || 'bun' }}" = "bun" ]; then
+          INSTALL_CMD="${{ inputs.install-command }}"
+          PKG_MGR="${{ inputs.package-manager || 'bun' }}"
+
+          if [ -n "$INSTALL_CMD" ]; then
+            eval "$INSTALL_CMD"
+          elif [ "$PKG_MGR" = "bun" ]; then
             bun install --frozen-lockfile || bun install
-          elif [ "${{ inputs.package-manager }}" = "yarn" ]; then
+          elif [ "$PKG_MGR" = "yarn" ]; then
             yarn install --immutable || yarn install
-          elif [ "${{ inputs.package-manager }}" = "pnpm" ]; then
+          elif [ "$PKG_MGR" = "pnpm" ]; then
             pnpm install --frozen-lockfile || pnpm install
           else
             npm ci || npm install
@@ -130,13 +133,16 @@ jobs:
 
       - name: Run Jest With Coverage
         run: |
-          if [ -n "${{ inputs.test-command }}" ]; then
-            ${{ inputs.test-command }}
-          elif [ "${{ inputs.package-manager || 'bun' }}" = "bun" ]; then
+          TEST_CMD="${{ inputs.test-command }}"
+          PKG_MGR="${{ inputs.package-manager || 'bun' }}"
+
+          if [ -n "$TEST_CMD" ]; then
+            eval "$TEST_CMD"
+          elif [ "$PKG_MGR" = "bun" ]; then
             bun run test
-          elif [ "${{ inputs.package-manager }}" = "yarn" ]; then
+          elif [ "$PKG_MGR" = "yarn" ]; then
             yarn test
-          elif [ "${{ inputs.package-manager }}" = "pnpm" ]; then
+          elif [ "$PKG_MGR" = "pnpm" ]; then
             pnpm test
           else
             npm test

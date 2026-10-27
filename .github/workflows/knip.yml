@@ -100,13 +100,16 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ -n "${{ inputs.install-command }}" ]; then
-            ${{ inputs.install-command }}
-          elif [ "${{ inputs.package-manager || 'bun' }}" = "bun" ]; then
+          INSTALL_CMD="${{ inputs.install-command }}"
+          PKG_MGR="${{ inputs.package-manager || 'bun' }}"
+
+          if [ -n "$INSTALL_CMD" ]; then
+            eval "$INSTALL_CMD"
+          elif [ "$PKG_MGR" = "bun" ]; then
             bun install --frozen-lockfile || bun install
-          elif [ "${{ inputs.package-manager }}" = "yarn" ]; then
+          elif [ "$PKG_MGR" = "yarn" ]; then
             yarn install --immutable || yarn install
-          elif [ "${{ inputs.package-manager }}" = "pnpm" ]; then
+          elif [ "$PKG_MGR" = "pnpm" ]; then
             pnpm install --frozen-lockfile || pnpm install
           else
             npm ci || npm install
@@ -117,13 +120,16 @@ jobs:
 
       - name: Run Knip
         run: |
-          if [ -n "${{ inputs.knip-command }}" ]; then
-            ${{ inputs.knip-command }}
-          elif [ "${{ inputs.package-manager || 'bun' }}" = "bun" ]; then
+          KNIP_CMD="${{ inputs.knip-command }}"
+          PKG_MGR="${{ inputs.package-manager || 'bun' }}"
+
+          if [ -n "$KNIP_CMD" ]; then
+            eval "$KNIP_CMD"
+          elif [ "$PKG_MGR" = "bun" ]; then
             bun run knip || bun run knip-ci > knip-results.json || bun run knip --reporter json > knip-results.json
-          elif [ "${{ inputs.package-manager }}" = "yarn" ]; then
+          elif [ "$PKG_MGR" = "yarn" ]; then
             yarn knip || yarn knip-ci > knip-results.json || yarn knip --reporter json > knip-results.json
-          elif [ "${{ inputs.package-manager }}" = "pnpm" ]; then
+          elif [ "$PKG_MGR" = "pnpm" ]; then
             pnpm knip || pnpm knip-ci > knip-results.json || pnpm knip --reporter json > knip-results.json
           else
             npm run knip || npm run knip-ci > knip-results.json || npx knip --reporter json > knip-results.json
